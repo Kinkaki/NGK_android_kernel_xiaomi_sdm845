@@ -112,21 +112,21 @@ jobs:
          git clone --depth=1 https://github.com/Shiki-ghub/AnyKernel3.git AnyKernel3
     
       - name: Download build script
-       working-directory: kernel
-       run: |
-        curl -L https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/beryllium.sh \
-        -o beryllium.sh
+        working-directory: kernel
+        run: |
+         curl -L https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/beryllium.sh \
+         -o beryllium.sh
          chmod +x beryllium.sh
     
       - name: Build kernel
         working-directory: kernel
         run: |
-         ./beryllium.sh \
-          --variant "${{ matrix.variant }}" \
-          --ksu "${{ matrix.ksu }}" \
-          --defconfig "${{ matrix.defconfig }}" \
-          --jobs "${{ inputs.jobs }}" \
-          --clang-path "$HOME/toolchains/proton-clang/bin"
+          ./beryllium.sh \
+            --variant "${{ matrix.variant }}" \
+            --ksu "${{ matrix.ksu }}" \
+            --defconfig "${{ matrix.defconfig }}" \
+            --jobs "${{ inputs.jobs }}" \
+            --clang-path "$HOME/toolchains/proton-clang/bin"
 
       - name: Package into AnyKernel3 zip
         id: package
