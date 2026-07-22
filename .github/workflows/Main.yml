@@ -11,10 +11,12 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Checkout kernel source
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
+      - name: Clone kernel source
+        run: |
+          # Melakukan clone repository saat ini beserta seluruh branch dan tags
+          # Titik (.) di akhir perintah sangat penting agar isi repo langsung
+          # diletakkan di direktori utama (workspace), bukan di dalam sub-folder.
+          git clone https://github.com/${{ github.repository }}.git -b ${{ github.ref_name }} .
 
       - name: Install build dependencies
         run: |
