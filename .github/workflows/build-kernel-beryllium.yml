@@ -38,7 +38,7 @@ on:
 
 jobs:
   matrix-setup:
-    runs-on: ubuntu-21.04
+    runs-on: ubuntu-22.04
     outputs:
       variants: ${{ steps.set-matrix.outputs.variants }}
       ksu_check: ${{ steps.set-matrix.outputs.ksu_check }}
@@ -77,23 +77,9 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            git curl wget \
-            build-essential gcc make \
-            bc bison flex \
-            libssl-dev libelf-dev \
-            libncurses5-dev \
-            python3 \
-            zip unzip \
-            cpio \
-            ccache \
-            binutils-aarch64-linux-gnu \
-            binutils-arm-linux-gnueabihf \
-            lld \
-            rsync \
-            clang
-
+          sudo apt-get update
+          sudo apt-get install -y build-essential bc curl git zip ftp gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libssl-dev lftp zstd wget libfl-dev python2 python3 libarchive-tools
+            
       - name: Checkout kernel source (before KernelSU)
         uses: actions/checkout@v4
         with:
