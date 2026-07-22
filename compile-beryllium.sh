@@ -38,10 +38,11 @@ mkdir -p out
 echo 0 > ./out/.version
 export ARCH=arm64
 export SUBARCH=arm64
-export CLANG_PATH="${CLANG_PATH_ARG:-$HOME/toolchains/proton-clang/bin}"
+export CLANG_PATH="${CLANG_PATH_ARG:-$HOME/toolchains/neutron-clang/bin}"
 export PATH="${CLANG_PATH}:${PATH}"
 export CROSS_COMPILE=aarch64-linux-gnu-
 export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+export CLANG_TRIPLE=aarch64-linux-gnu-
 export KBUILD_BUILD_USER=Pierre2324
 export KBUILD_BUILD_HOST=bokir
 
