@@ -1,4 +1,4 @@
-name: Build k (beryllium)
+name: Build Kernel (beryllium)
 run-name: ${{ inputs.input-run-name }}
 
 on:
@@ -97,7 +97,7 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Download Proton Clang
+      - name: Download Neutron Clang
         run: |
           mkdir -p "$HOME/toolchains"
           cd "$HOME/toolchains"
