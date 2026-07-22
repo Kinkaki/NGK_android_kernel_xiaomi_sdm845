@@ -9,9 +9,20 @@ red='\033[0;31m'
 nocol='\033[0m'
 
 # Cleanup
-rm -rf out/outputs/*
+rm -rf out/outputs
+mkdir -p out/outputs
 
-./compile-beryllium.sh
+# Hanya jalankan satu script build: compile-beryllium.sh
+device_script="./compile-beryllium.sh"
+
+if [ ! -f "${device_script}" ]; then
+    echo -e "${red}Script tidak ditemukan: ${device_script}${nocol}"
+    exit 1
+fi
+
+echo -e "${cyan}Running ${device_script}...${nocol}"
+chmod +x "${device_script}"
+"${device_script}"
 
 BUILD_END=$(date +"%s")
 DIFF=$(($BUILD_END - $BUILD_START))
