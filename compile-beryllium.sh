@@ -8,7 +8,7 @@ VARIANT="9.1.24-SE"
 KSU="Exclude"
 JOBS="24"
 CLANG_PATH_ARG=""
-DEFCONFIG="nogravity_defconfig"
+DEFCONFIG="nogravityxxksu_defconfig"
 LOCALVERSION="-NGK-1"
 
 while [ "$#" -gt 0 ]; do
