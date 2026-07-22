@@ -34,7 +34,7 @@ jobs:
           echo "ANYKERNEL_DIR=$GITHUB_WORKSPACE/AnyKernel3" >> "$GITHUB_ENV"
 
       - name: Make build scripts executable
-        run: chmod +x compile.sh compile-beryllium.sh compile-dipper.sh
+        run: chmod +x compile.sh compile-beryllium.sh
 
       - name: Build kernel
         run: ./compile.sh
