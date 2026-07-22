@@ -8,7 +8,7 @@ yellow='\033[0;33m'
 red='\033[0;31m'
 nocol='\033[0m'
 
-curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+curl -LSs "https://raw.githubusercontent.com/KOWX712/KernelSU/master/kernel/setup.sh" | bash
 
 # Grab AnyKernel3 if it isn't already here (GitHub Actions clones it in a
 # separate step; this is just a fallback for local builds)
