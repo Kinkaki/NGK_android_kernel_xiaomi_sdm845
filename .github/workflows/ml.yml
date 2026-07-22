@@ -77,22 +77,10 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            git curl wget \
-            build-essential gcc make \
-            bc bison flex \
-            libssl-dev libelf-dev \
-            libncurses5-dev \
-            python3 \
-            zip unzip \
-            cpio \
-            ccache \
-            binutils-aarch64-linux-gnu \
-            binutils-arm-linux-gnueabihf \
-            lld \
-            rsync \
-            clang
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc bison build-essential ccache cpio curl flex \
+            git kmod libssl-dev python3 rsync unzip zip
 
       - name: Checkout source
         uses: actions/checkout@v4
