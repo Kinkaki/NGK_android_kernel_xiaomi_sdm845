@@ -54,7 +54,7 @@ echo
 # hook manual yang sudah dipatch di security.c/fs/exec.c/dll). Harus jalan
 # sebelum "make defconfig" karena nambah entry ke drivers/Kconfig & drivers/Makefile.
 if [ "${KSU}" = "Include" ]; then
-    curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s legacy
+    curl -LSs "https://raw.githubusercontent.com/KOWX712/KernelSU/master/kernel/setup.sh" | bash
 fi
 
 make CC=clang AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out ARCH=${ARCH} LOCALVERSION=${LOCALVERSION} ${DEFCONFIG}
