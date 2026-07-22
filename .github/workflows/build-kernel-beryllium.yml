@@ -116,7 +116,7 @@ jobs:
         run: |
           curl -L https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/beryllium.sh \
             -o beryllium.sh
-        chmod +x beryllium.sh
+          chmod +x beryllium.sh
     
       - name: Build kernel
         working-directory: kernel
