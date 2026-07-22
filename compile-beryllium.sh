@@ -35,7 +35,7 @@ esac
 PHONE="beryllium"
 
 mkdir -p out
-echo 0 >./out/.version
+echo 0 > ./out/.version
 export ARCH=arm64
 export SUBARCH=arm64
 export CLANG_PATH="${CLANG_PATH_ARG:-$HOME/toolchains/proton-clang/bin}"
@@ -53,17 +53,17 @@ echo
 # Setup source driver KernelSU-Next (mode legacy = manual hook, cocok dengan
 # hook manual yang sudah dipatch di security.c/fs/exec.c/dll). Harus jalan
 # sebelum "make defconfig" karena nambah entry ke drivers/Kconfig & drivers/Makefile.
-if; then
+if [ "${KSU}" = "Include" ]; then
     curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s legacy
 fi
 
 make CC=clang AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out ARCH=${ARCH} LOCALVERSION=${LOCALVERSION} ${DEFCONFIG}
 
 # Toggle CONFIG_KSU sesuai input
-if; then
-   ./scripts/config --file out/.config --enable CONFIG_KSU
+if [ "${KSU}" = "Include" ]; then
+    ./scripts/config --file out/.config --enable CONFIG_KSU
 else
-   ./scripts/config --file out/.config --disable CONFIG_KSU
+    ./scripts/config --file out/.config --disable CONFIG_KSU
 fi
 make CC=clang AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out ARCH=${ARCH} LOCALVERSION=${LOCALVERSION} olddefconfig
 
@@ -83,7 +83,7 @@ if [ $? -ne 0 ]; then
 fi
 echo "Build succesful"
 
-mkdir -p./release/${PHONE}
+mkdir -p ./release/${PHONE}
 
 # Copy the current Image.gz-dtb to history with incremented name
 history_dir=./release/${PHONE}/history-${VARIANT}
@@ -96,4 +96,4 @@ if [ -f "$current_file" ]; then
 fi
 
 # Copy the new build to the release directory
-cp -f./out/arch/arm64/boot/Image.gz-dtb./release/${PHONE}/Image-${VARIANT}.gz-dtb
+cp -f ./out/arch/arm64/boot/Image.gz-dtb ./release/${PHONE}/Image-${VARIANT}.gz-dtb
