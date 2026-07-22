@@ -77,10 +77,10 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            bc bison build-essential ccache cpio curl flex \
-            git kmod libssl-dev python3 rsync unzip zip
+           sudo apt-get update
+           sudo apt-get install -y \
+             bc bison build-essential ccache cpio curl flex \
+             git kmod libssl-dev python3 rsync unzip zip
 
       - name: Checkout source
         uses: actions/checkout@v4
