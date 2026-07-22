@@ -1,4 +1,4 @@
-name: Build Kernel (beryllium)
+name: Build Kernel poco f1 (beryllium)
 run-name: ${{ inputs.input-run-name }}
 
 on:
@@ -38,7 +38,7 @@ on:
 
 jobs:
   matrix-setup:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     outputs:
       variants: ${{ steps.set-matrix.outputs.variants }}
       ksu_check: ${{ steps.set-matrix.outputs.ksu_check }}
@@ -94,42 +94,39 @@ jobs:
             rsync \
             clang
 
-      - name: Checkout source
+      - name: Checkout kernel source (before KernelSU)
         uses: actions/checkout@v4
+        with:
+          ref: 58c0e7a618c8cc8220e32d23513201574e3324a5
+          fetch-depth: 1
+          path: kernel
 
-      - name: Patch kernel tanpa ubah source
+      - name: Download proton Clang
         run: |
-          echo "Patch Polly..."
-          grep -n "polly" Makefile
-          sed -i 's/-mllvm -polly-opt-fusion=max/-mllvm -polly-loopfusion-greedy -mllvm -polly-isl-arg=--no-schedule-serialize-sccs/' Makefile
-          grep -n "polly" Makefile
+          mkdir -p "$HOME/toolchains"
+          cd "$HOME/toolchains"
+          git clone --depth=1 https://github.com/kdrag0n/proton-clang.git proton-clang
 
-          echo "Patch Cortex-A53 errata (SD845 pakai Kryo 385, bukan Cortex-A53)..."
-          grep -rn "mno-fix-cortex-a53-843419" arch/arm64/Makefile || true
-          sed -i 's/-mno-fix-cortex-a53-843419//' arch/arm64/Makefile
-          grep -rn "mno-fix-cortex-a53-843419" arch/arm64/Makefile || true
-
-      - name: Download Neutron Clang
+      - name: Git Clone AnyKernel3
         run: |
-          mkdir -p "$HOME/toolchains/neutron-clang"
-          cd "$HOME/toolchains/neutron-clang"
-          curl -LO "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman"
-          chmod +x antman
-          ./antman -S
-
-      - name: Git Clone AnyKernel3 (fork sendiri, sudah dikonfigurasi untuk beryllium/dipper)
-        run: |
-          git clone --depth=1 https://github.com/Shiki-ghub/AnyKernel3.git AnyKernel3
-
+         git clone --depth=1 https://github.com/Shiki-ghub/AnyKernel3.git AnyKernel3
+    
+      - name: Download build script
+       working-directory: kernel
+       run: |
+        curl -L https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/beryllium.sh \
+        -o beryllium.sh
+         chmod +x beryllium.sh
+    
       - name: Build kernel
+        working-directory: kernel
         run: |
-          chmod +x ./compile-beryllium.sh
-          bash ./compile-beryllium.sh \
-            --variant "${{ matrix.variant }}" \
-            --ksu "${{ matrix.ksu }}" \
-            --defconfig "${{ matrix.defconfig }}" \
-            --jobs "${{ inputs.jobs }}" \
-            --clang-path "$HOME/toolchains/neutron-clang/bin"
+         ./beryllium.sh \
+          --variant "${{ matrix.variant }}" \
+          --ksu "${{ matrix.ksu }}" \
+          --defconfig "${{ matrix.defconfig }}" \
+          --jobs "${{ inputs.jobs }}" \
+          --clang-path "$HOME/toolchains/proton-clang/bin"
 
       - name: Package into AnyKernel3 zip
         id: package
@@ -138,7 +135,7 @@ jobs:
           ksu="${{ matrix.ksu }}"
           defconfig="${{ matrix.defconfig }}"
 
-          cp "release/beryllium/Image-${variant}.gz-dtb" "AnyKernel3/Image.gz-dtb"
+          cp "kernel/release/beryllium/Image-${variant}.gz-dtb" "AnyKernel3/Image.gz-dtb"
 
           if [ "$ksu" = "Include" ]; then
             ksu_tag="KSU"
@@ -162,3 +159,4 @@ jobs:
           path: ${{ steps.package.outputs.zipname }}
           if-no-files-found: error
           retention-days: 30
+          
