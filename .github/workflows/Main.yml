@@ -1,18 +1,11 @@
 name: Github workflow kernel build
 
 on:
-  workflow_dispatch:
-    inputs:
-      ksu_branch:
-        description: 'Branch/tag KowSU yang di-checkout (kosongkan untuk default "master")'
-        required: false
-        default: 'master'
-        type: string
+  workflow_dispatch
 
 env:
   BOT_API_KEY: ${{ secrets.BOT_API_KEY }}
   CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
-  KBUILD_BUILD_VERSION: 1
 
 jobs:
   build:
@@ -26,48 +19,29 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            bc bison build-essential ccache cpio curl flex \
-            git kmod libssl-dev python3 rsync tzdata unzip zip
+          sudo apt-get install -y bc bison build-essential ccache curl flex \
+            g++-multilib gcc-multilib git libssl-dev libncurses5-dev \
+            liblz4-tool lz4 zip unzip python3
 
-      - name: Cache Proton-Clang toolchain
-        id: cache-clang
-        uses: actions/cache@v4
-        with:
-          path: clang
-          key: proton-clang-toolchain
-
-      - name: Clone Proton-Clang toolchain
-        if: steps.cache-clang.outputs.cache-hit != 'true'
-        run: git clone --depth=1 https://github.com/kdrag0n/proton-clang.git clang
+      - name: Clone Proton Clang toolchain
+        run: |
+          git clone --depth=1 https://github.com/kdrag0n/proton-clang.git "$HOME/proton-clang"
+          echo "COMPILERDIR=$HOME/proton-clang" >> "$GITHUB_ENV"
 
       - name: Clone AnyKernel3
-        run: git clone --depth=1 https://github.com/Shiki-ghub/AnyKernel3.git AnyKernel3
+        run: |
+          git clone --depth=1 https://github.com/Shiki-ghub/AnyKernel3.git "$GITHUB_WORKSPACE/AnyKernel3"
+          echo "ANYKERNEL_DIR=$GITHUB_WORKSPACE/AnyKernel3" >> "$GITHUB_ENV"
 
-      - name: Remove leftover KernelSU folder
-        run: rm -rf KernelSU
-
-      - name: Integrate kernelSU
-        run: https://raw.githubusercontent.com/KOWX712/KernelSU/master/kernel/setup.sh"${{ github.event.inputs.ksu_branch }}"
+      - name: Make build scripts executable
+        run: chmod +x compile.sh compile-beryllium.sh compile-dipper.sh
 
       - name: Build kernel
-        run: bash compile.sh
+        run: ./compile.sh
 
-      - name: Upload build artifacts
-        if: always()
+      - name: Upload build outputs
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-build-${{ github.run_number }}
-          path: out/outputs/**/*.zip
+          name: kernel-builds
+          path: out/outputs/**/*-AnyKernel3.zip
           if-no-files-found: warn
-
-      - name: Send builds to Telegram
-        if: success()
-        run: |
-          shopt -s globstar nullglob
-          for file in out/outputs/**/*.zip; do
-            curl -sS -F document=@"${file}" \
-              -F chat_id="${CHANNEL_ID}" \
-              -F caption="$(basename "${file}")" \
-              "https://api.telegram.org/bot${BOT_API_KEY}/sendDocument"
-          done
