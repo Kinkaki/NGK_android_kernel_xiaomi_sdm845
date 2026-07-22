@@ -25,7 +25,6 @@ rm -rf out/outputs/*
 # NOTE: compile-dipper.sh needs the same two fixes applied to
 # compile-beryllium.sh (COMPILERDIR fallback + mkdir -p), since it wasn't
 # part of what you sent me to sync.
-#compile-dipper.sh
 
 BUILD_END=$(date +"%s")
 DIFF=$(($BUILD_END - $BUILD_START))
