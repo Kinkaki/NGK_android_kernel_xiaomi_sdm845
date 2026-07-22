@@ -40,8 +40,7 @@ jobs:
         run: git clone --depth=1 https://github.com/Shiki-ghub/AnyKernel3.git AnyKernel3
 
       - name: Integrate kernelSU
-        run: curl -LSs "https://raw.githubusercontent.com/backslashxx/KernelSU/master/kernel/setup.sh" | bash -s
-
+        run: curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s legacy
       - name: Build kernel
         run: bash compile.sh
 
