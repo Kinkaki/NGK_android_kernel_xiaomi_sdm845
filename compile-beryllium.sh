@@ -1,156 +1,99 @@
-#!/bin/sh
+#!/bin/bash
+echo
+echo "Issue Build Commands"
+echo
 
-# Many parts of this script were taken from @REIGNZ, @idkwhoiam322 and @raphielscape . Huge thanks to them.
+# ---- Parse args (dipanggil dari workflow, satu variant per run - gaya build_kernel_docker_quick.sh) ----
+VARIANT="9.1.24-SE"
+KSU="Exclude"
+JOBS="24"
+CLANG_PATH_ARG=""
+DEFCONFIG="nogravity_defconfig"
+LOCALVERSION="-NGK-1"
 
-# Some general variables
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --variant) VARIANT="$2"; shift 2 ;;
+        --ksu) KSU="$2"; shift 2 ;;
+        --jobs) JOBS="$2"; shift 2 ;;
+        --clang-path) CLANG_PATH_ARG="$2"; shift 2 ;;
+        --defconfig) DEFCONFIG="$2"; shift 2 ;;
+        *) echo "Unknown option: $1"; shift ;;
+    esac
+done
+
+case "${VARIANT}" in
+    9.1.24-SE|9.1.24-NSE) FW_VER="9.1.24" ;;
+    10.3.7-SE|10.3.7-NSE) FW_VER="10.3.7" ;;
+    *) echo "Unknown variant: ${VARIANT}"; exit 1 ;;
+esac
+case "${VARIANT}" in
+    *-SE)  TOUCH_DTS="SE"  ;;
+    *-NSE) TOUCH_DTS="NSE" ;;
+esac
+
 PHONE="beryllium"
-ARCH="arm64"
-SUBARCH="arm64"
-DEFCONFIG=nogravityxx_defconfig
-#DEFCONFIG=beryllium_defconfig
-COMPILER=clang
-LINKER=""
-# Falls back to the local dev path if COMPILERDIR isn't already exported
-# (GitHub Actions exports its own COMPILERDIR after cloning the toolchain)
-COMPILERDIR="${COMPILERDIR:-/media/pierre/Expension/Android/PocophoneF1/Kernels/Proton-Clang}"
 
-# Outputs
-# -p is required: on a fresh GitHub Actions checkout "out/" doesn't exist
-# yet, so a plain "mkdir out/outputs" fails before the build even starts.
-mkdir -p out/outputs/${PHONE}/9.1.24-SE
-mkdir -p out/outputs/${PHONE}/9.1.24-NSE
-mkdir -p out/outputs/${PHONE}/10.3.7-SE
-mkdir -p out/outputs/${PHONE}/10.3.7-NSE
-
-# AnyKernel3, used to package each Image.gz-dtb into a flashable zip
-ANYKERNEL_DIR="${ANYKERNEL_DIR:-$(pwd)/AnyKernel3}"
-
-package_zip() {
-    # $1 = path to Image.gz-dtb, $2 = path to output zip
-    if [ ! -d "${ANYKERNEL_DIR}" ]; then
-        echo "AnyKernel3 not found at ${ANYKERNEL_DIR}, skipping packaging"
-        return 1
-    fi
-    rm -rf ak3-tmp
-    cp -r "${ANYKERNEL_DIR}" ak3-tmp
-    cp "$1" ak3-tmp/Image.gz-dtb
-    ( cd ak3-tmp && zip -r9 "$2" . -x ".git*" "README.md" )
-    rm -rf ak3-tmp
-}
-
-# Export shits
+mkdir -p out
+echo 0 > ./out/.version
+export ARCH=arm64
+export SUBARCH=arm64
+export CLANG_PATH="${CLANG_PATH_ARG:-$HOME/toolchains/neutron-clang/bin}"
+export PATH="${CLANG_PATH}:${PATH}"
+export CROSS_COMPILE=aarch64-linux-gnu-
+export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+export CLANG_TRIPLE=aarch64-linux-gnu-
 export KBUILD_BUILD_USER=Pierre2324
 export KBUILD_BUILD_HOST=bokir
 
-# Speed up build process
-MAKE="./makeparallel"
+echo
+echo "Set DEFCONFIG"
+echo
 
-# Basic build function
-BUILD_START=$(date +"%s")
-blue='\033[0;34m'
-cyan='\033[0;36m'
-yellow='\033[0;33m'
-red='\033[0;31m'
-nocol='\033[0m'
+# Setup source driver KernelSU-Next (mode legacy = manual hook, cocok dengan
+# hook manual yang sudah dipatch di security.c/fs/exec.c/dll). Harus jalan
+# sebelum "make defconfig" karena nambah entry ke drivers/Kconfig & drivers/Makefile.
+if [ "${KSU}" = "Include" ]; then
+    curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s legacy
+fi
 
-Build () {
-PATH="${COMPILERDIR}/bin:${PATH}" \
-make -j$(nproc --all) O=out \
-ARCH=${ARCH} \
-CC=${COMPILER} \
-CROSS_COMPILE=${COMPILERDIR}/bin/aarch64-linux-gnu- \
-CROSS_COMPILE_ARM32=${COMPILERDIR}/bin/arm-linux-gnueabi- \
-LD_LIBRARY_PATH=${COMPILERDIR}/lib
-}
+make CC=clang AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out ARCH=${ARCH} LOCALVERSION=${LOCALVERSION} ${DEFCONFIG}
 
-Build_lld () {
-PATH="${COMPILERDIR}/bin:${PATH}" \
-make -j$(nproc --all) O=out \
-ARCH=${ARCH} \
-CC=${COMPILER} \
-CROSS_COMPILE=${COMPILERDIR}/bin/aarch64-linux-gnu- \
-CROSS_COMPILE_ARM32=${COMPILERDIR}/bin/arm-linux-gnueabi- \
-LD=ld.${LINKER} \
-AR=llvm-ar \
-NM=llvm-nm \
-OBJCOPY=llvm-objcopy \
-OBJDUMP=llvm-objdump \
-STRIP=llvm-strip \
-ld-name=${LINKER} \
-KBUILD_COMPILER_STRING="Proton Clang"
-}
+# Toggle CONFIG_KSU sesuai input
+if [ "${KSU}" = "Include" ]; then
+    ./scripts/config --file out/.config --enable CONFIG_KSU
+else
+    ./scripts/config --file out/.config --disable CONFIG_KSU
+fi
+make CC=clang AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out ARCH=${ARCH} LOCALVERSION=${LOCALVERSION} olddefconfig
 
-# Make defconfig
+echo
+echo "Apply touch firmware / dts overlay for ${VARIANT}"
+echo
+cp firmware/touch_fw_variant/${FW_VER}/* firmware/
+cp arch/arm64/boot/dts/qcom/SE_NSE/${TOUCH_DTS}/* arch/arm64/boot/dts/qcom/
 
-make O=out ARCH=${ARCH} ${DEFCONFIG}
-if [ $? -ne 0 ]
-then
+echo
+echo "Build The Good Stuff"
+echo
+make CC=clang AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out ARCH=${ARCH} LOCALVERSION=${LOCALVERSION} -j${JOBS}
+if [ $? -ne 0 ]; then
     echo "Build failed"
-else
-    echo "Made ${DEFCONFIG}"
+    exit 1
+fi
+echo "Build succesful"
+
+mkdir -p ./release/${PHONE}
+
+# Copy the current Image.gz-dtb to history with incremented name
+history_dir=./release/${PHONE}/history-${VARIANT}
+mkdir -p "$history_dir"
+current_file=./release/${PHONE}/Image-${VARIANT}.gz-dtb
+if [ -f "$current_file" ]; then
+    n=$(ls "$history_dir" | grep -oP "^Image-${VARIANT}\K\d+$" | sort -nr | head -n1)
+    n=$((n + 1))
+    cp -f "$current_file" "$history_dir/Image-${VARIANT}${n}.gz-dtb"
 fi
 
-# Build starts here
-if [ -z ${LINKER} ]
-then
-    #Start with 9.1.24-SE
-    cp firmware/touch_fw_variant/9.1.24/* firmware/
-    cp arch/arm64/boot/dts/qcom/SE_NSE/SE/* arch/arm64/boot/dts/qcom/
-    Build
-else
-    Build_lld
-fi
-
-if [ $? -ne 0 ]
-then
-    echo "Build failed"
-    rm -rf out/outputs/${PHONE}/*
-else
-    echo "Build succesful"
-    cp out/arch/arm64/boot/Image.gz-dtb out/outputs/${PHONE}/9.1.24-SE/Image.gz-dtb
-    package_zip out/outputs/${PHONE}/9.1.24-SE/Image.gz-dtb "$(pwd)/out/outputs/${PHONE}/9.1.24-SE/${PHONE}-9.1.24-SE-AnyKernel3.zip"
-
-    #9.1.24-NSE
-    cp arch/arm64/boot/dts/qcom/SE_NSE/NSE/* arch/arm64/boot/dts/qcom/
-    Build
-    if [ $? -ne 0 ]
-    then
-        echo "Build failed"
-        rm -rf out/outputs/${PHONE}/9.1.24-NSE/*
-    else
-        echo "Build succesful"
-        cp out/arch/arm64/boot/Image.gz-dtb out/outputs/${PHONE}/9.1.24-NSE/Image.gz-dtb
-        package_zip out/outputs/${PHONE}/9.1.24-NSE/Image.gz-dtb "$(pwd)/out/outputs/${PHONE}/9.1.24-NSE/${PHONE}-9.1.24-NSE-AnyKernel3.zip"
-
-        #10.3.7-SE
-        cp firmware/touch_fw_variant/10.3.7/* firmware/
-        cp arch/arm64/boot/dts/qcom/SE_NSE/SE/* arch/arm64/boot/dts/qcom/
-        Build
-        if [ $? -ne 0 ]
-        then
-            echo "Build failed"
-            rm -rf out/outputs/${PHONE}/10.3.7-SE/*
-        else
-            echo "Build succesful"
-            cp out/arch/arm64/boot/Image.gz-dtb out/outputs/${PHONE}/10.3.7-SE/Image.gz-dtb
-            package_zip out/outputs/${PHONE}/10.3.7-SE/Image.gz-dtb "$(pwd)/out/outputs/${PHONE}/10.3.7-SE/${PHONE}-10.3.7-SE-AnyKernel3.zip"
-
-            #10.3.7-NSE
-            cp arch/arm64/boot/dts/qcom/SE_NSE/NSE/* arch/arm64/boot/dts/qcom/
-            Build
-            if [ $? -ne 0 ]
-            then
-                echo "Build failed"
-                rm -rf out/outputs/${PHONE}/10.3.7-NSE/*
-            else
-                echo "Build succesful"
-                cp out/arch/arm64/boot/Image.gz-dtb out/outputs/${PHONE}/10.3.7-NSE/Image.gz-dtb
-                package_zip out/outputs/${PHONE}/10.3.7-NSE/Image.gz-dtb "$(pwd)/out/outputs/${PHONE}/10.3.7-NSE/${PHONE}-10.3.7-NSE-AnyKernel3.zip"
-            fi
-        fi
-    fi
-fi
-
-BUILD_END=$(date +"%s")
-DIFF=$(($BUILD_END - $BUILD_START))
-echo -e "$yellow Build completed in $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds.$nocol"
+# Copy the new build to the release directory
+cp -f ./out/arch/arm64/boot/Image.gz-dtb ./release/${PHONE}/Image-${VARIANT}.gz-dtb
