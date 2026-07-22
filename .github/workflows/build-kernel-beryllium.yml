@@ -1,4 +1,4 @@
-name: Build Kernel poco f1 (beryllium)
+name: Build Kernel (beryllium)
 run-name: ${{ inputs.input-run-name }}
 
 on:
@@ -109,14 +109,14 @@ jobs:
 
       - name: Git Clone AnyKernel3
         run: |
-         git clone --depth=1 https://github.com/Shiki-ghub/AnyKernel3.git AnyKernel3
+          git clone --depth=1 https://github.com/Shiki-ghub/AnyKernel3.git AnyKernel3
     
       - name: Download build script
         working-directory: kernel
         run: |
-         curl -L https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/beryllium.sh \
-         -o beryllium.sh
-         chmod +x beryllium.sh
+          curl -L https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/beryllium.sh \
+            -o beryllium.sh
+        chmod +x beryllium.sh
     
       - name: Build kernel
         working-directory: kernel
