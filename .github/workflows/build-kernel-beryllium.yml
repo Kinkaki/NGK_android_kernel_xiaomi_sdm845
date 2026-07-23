@@ -87,12 +87,19 @@ jobs:
           fetch-depth: 1
           path: kernel
 
+      - name: Restore Proton Clang cache
+        id: proton-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/toolchains/proton-clang
+          key: proton-clang-toolchain
+
       - name: Download proton Clang
+        if: steps.proton-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p "$HOME/toolchains"
           cd "$HOME/toolchains"
           git clone --depth=1 https://github.com/kdrag0n/proton-clang.git proton-clang
-
       - name: Git Clone AnyKernel3
         run: |
           git clone --depth=1 https://github.com/Shiki-ghub/AnyKernel3.git AnyKernel3
