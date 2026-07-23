@@ -145,4 +145,17 @@ jobs:
           path: ${{ steps.package.outputs.zipname }}
           if-no-files-found: error
           retention-days: 30
-          
+
+      - name: Send build to Telegram
+        if: success()
+        run: |
+          ZIP="${{ steps.package.outputs.zipname }}"
+
+          curl -F document=@"$ZIP" \
+          -F caption="✅ Kernel Build Success
+
+             Device: beryllium
+             Variant: ${{ matrix.variant }}
+             KSU: ${{ matrix.ksu }}
+             Defconfig: ${{ matrix.defconfig }}" \
+             "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument?chat_id=${{ secrets.TELEGRAM_CHAT_ID }}"
