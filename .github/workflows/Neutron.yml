@@ -104,6 +104,11 @@ jobs:
           sed -i 's/-mllvm -polly-opt-fusion=max/-mllvm -polly-loopfusion-greedy -mllvm -polly-isl-arg=--no-schedule-serialize-sccs/' Makefile
           grep -n "polly" Makefile
 
+          echo "Patch Cortex-A53 errata (SD845 pakai Kryo 385, bukan Cortex-A53)..."
+          grep -rn "mno-fix-cortex-a53-843419" arch/arm64/Makefile || true
+          sed -i 's/-mno-fix-cortex-a53-843419//' arch/arm64/Makefile
+          grep -rn "mno-fix-cortex-a53-843419" arch/arm64/Makefile || true
+
       - name: Download Neutron Clang
         run: |
           mkdir -p "$HOME/toolchains/neutron-clang"
