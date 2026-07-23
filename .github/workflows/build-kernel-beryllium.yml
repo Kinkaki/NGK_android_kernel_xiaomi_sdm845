@@ -36,6 +36,7 @@ on:
         required: false
         type: choice
         options:
+          - none
           - Ksunext
           - ReSukiSU
           - backslashxx
