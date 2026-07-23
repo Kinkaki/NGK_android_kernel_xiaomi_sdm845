@@ -38,7 +38,7 @@ on:
 
 jobs:
   matrix-setup:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       variants: ${{ steps.set-matrix.outputs.variants }}
       ksu_check: ${{ steps.set-matrix.outputs.ksu_check }}
@@ -65,7 +65,7 @@ jobs:
 
   build:
     needs: matrix-setup
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     strategy:
       matrix:
