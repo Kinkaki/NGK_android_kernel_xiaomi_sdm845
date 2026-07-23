@@ -31,6 +31,15 @@ on:
         description: 'Defconfig (pisahkan dengan koma untuk build lebih dari satu)'
         required: false
         default: 'nogravity_defconfig'
+      ksu_name:
+        description: 'KernelSU Variant Name'
+        required: false
+        type: choice
+        options:
+          - Ksunext
+          - ReSukiSU
+          - backslashxx
+        default: none 
       jobs:
         description: 'Parallel jobs'
         required: false
@@ -127,7 +136,8 @@ jobs:
           variant="${{ matrix.variant }}"
           ksu="${{ matrix.ksu }}"
           defconfig="${{ matrix.defconfig }}"
-
+          ksu_name="${{ inputs.ksu_name }}"
+          
           cp "kernel/release/beryllium/Image-${variant}.gz-dtb" "AnyKernel3/Image.gz-dtb"
 
           if [ "$ksu" = "Include" ]; then
@@ -136,7 +146,7 @@ jobs:
             ksu_tag="NoKSU"
           fi
 
-          zipname="beryllium-${defconfig}-${variant}-${ksu_tag}-$(date +'%Y%m%d-%H%M').zip"
+          zipname="beryllium-${defconfig}-${variant}-${ksu_tag}-${ksu_name}-$(date +'%Y%m%d-%H%M').zip"
           (
             cd AnyKernel3 || exit 1
             zip -r9 "../${zipname}" . -x ".git/*" ".github/*" "README.md"
@@ -159,10 +169,11 @@ jobs:
           ZIP="${{ steps.package.outputs.zipname }}"
 
           curl -F document=@"$ZIP" \
-          -F caption="✅ Kernel Build Success
+                       -F caption="✅ Kernel Build Success
 
              Device: beryllium
              Variant: ${{ matrix.variant }}
+             KSU Variant: ${{ inputs.ksu_name }}
              KSU: ${{ matrix.ksu }}
              Defconfig: ${{ matrix.defconfig }}" \
              "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument?chat_id=${{ secrets.TELEGRAM_CHAT_ID }}"
