@@ -807,8 +807,8 @@ KBUILD_AFLAGS	+= $(call cc-option,-mabi=lp64)
 
 # This doesn't need 835769/843419 erratum fixes.
 # Some toolchains enable those fixes automatically, so opt-out.
-KBUILD_CFLAGS	+= $(call cc-option, -mno-fix-cortex-a53-835769)
-KBUILD_CFLAGS	+= $(call cc-option, -mno-fix-cortex-a53-843419)
+KBUILD_CFLAGS	+= $(call cc-option)
+KBUILD_CFLAGS	+= $(call cc-option)
 
 ifdef CONFIG_CC_WERROR
 KBUILD_CFLAGS	+= -Werror
