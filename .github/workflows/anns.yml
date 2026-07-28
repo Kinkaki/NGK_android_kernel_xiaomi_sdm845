@@ -3,10 +3,10 @@ name: Build Kernel - NSE Only
 on:
   workflow_dispatch:
     inputs:
-      defconfig:
-        description: 'Defconfig name'
+      with_kernelsu:
+        description: 'With KernelSU-Next? (Y/N)'
         required: true
-        default: 'nogravityksun_defconfig'
+        default: 'Y'
       phone:
         description: 'Device codename'
         required: true
@@ -23,18 +23,6 @@ jobs:
         with:
           ref: 58c0e7a618c8cc8220e32d23513201574e3324a5
           fetch-depth: 1
-
-      - name: Download defconfig
-        run: |
-          curl -fL \
-            https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/${{ github.event.inputs.defconfig }} \
-            -o arch/arm64/configs/${{ github.event.inputs.defconfig }}
-          
-          if [ ! -f arch/arm64/configs/${{ github.event.inputs.defconfig }} ]; then
-            echo "❌ Failed to download defconfig"
-            exit 1
-          fi
-          echo "✓ Defconfig downloaded: ${{ github.event.inputs.defconfig }}"
 
       - name: Install dependencies
         run: |
@@ -59,11 +47,60 @@ jobs:
           git clone --depth=1 https://github.com/Shiki-ghub/AnyKernel3.git \
             $GITHUB_WORKSPACE/anykernel
 
-      - name: Run build script
+      - name: Download build script
         run: |
+          curl -fL \
+            https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/build.sh \
+            -o build.sh
           chmod +x build.sh
+          echo "✓ build.sh downloaded"
+
+      - name: Setup KernelSU-Next & download patched files
+        if: ${{ github.event.inputs.with_kernelsu == 'Y' || github.event.inputs.with_kernelsu == 'y' }}
+        run: |
+          echo "========================================"
+          echo "  KernelSU-Next: ENABLED"
+          echo "========================================"
+          
+          # Setup KernelSU-Next langsung (tidak download dulu)
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s legacy
+          echo "✓ KernelSU-Next cloned"
+          
+          # Download file-file sudah di-patch dari repo kecil → overwrite
+          for file in fs/exec.c fs/open.c fs/read_write.c fs/stat.c kernel/reboot.c; do
+            filename=$(basename $file)
+            curl -fL \
+              https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/${filename} \
+              -o ${file}
+            echo "✓ Overwritten: ${file}"
+          done
+          
+          echo "KSU_ENABLED=Y" >> $GITHUB_ENV
+
+      - name: Download defconfig
+        run: |
+          if [ "${{ github.event.inputs.with_kernelsu }}" = "Y" ] || [ "${{ github.event.inputs.with_kernelsu }}" = "y" ]; then
+            DEFCONFIG="nogravityksun_defconfig"
+          else
+            DEFCONFIG="nogravity_defconfig"
+          fi
+          
+          curl -fL \
+            https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/${DEFCONFIG} \
+            -o arch/arm64/configs/${DEFCONFIG}
+          
+          if [ ! -f arch/arm64/configs/${DEFCONFIG} ]; then
+            echo "❌ Failed to download defconfig: ${DEFCONFIG}"
+            exit 1
+          fi
+          
+          echo "✓ Defconfig: ${DEFCONFIG}"
+          echo "DEFCONFIG=${DEFCONFIG}" >> $GITHUB_ENV
+
+      - name: Run build
+        run: |
           ./build.sh \
-            "${{ github.event.inputs.defconfig }}" \
+            "${{ env.DEFCONFIG }}" \
             "$GITHUB_WORKSPACE" \
             "$GITHUB_WORKSPACE/toolchains/proton-clang" \
             "$GITHUB_WORKSPACE/anykernel" \
@@ -72,6 +109,7 @@ jobs:
           LINKER: ld.lld
           KBUILD_BUILD_USER: github-actions
           KBUILD_BUILD_HOST: github-build
+          KSU_ENABLED: ${{ env.KSU_ENABLED }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
