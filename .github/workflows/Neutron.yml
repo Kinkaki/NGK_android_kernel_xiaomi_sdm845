@@ -1,4 +1,4 @@
-name: Build neutron clang Kernel (beryllium)
+name: Build Kernel (beryllium)
 run-name: ${{ inputs.input-run-name }}
 
 on:
@@ -19,7 +19,7 @@ on:
           - 10.3.7-SE
           - 10.3.7-NSE
       ksu:
-        description: 'xxKernelSU / fork )?'
+        description: 'KernelSU / ReSukiSU (manual hook, sudah di-patch di source)?'
         required: false
         type: choice
         options:
@@ -31,6 +31,16 @@ on:
         description: 'Defconfig (pisahkan dengan koma untuk build lebih dari satu)'
         required: false
         default: 'nogravity_defconfig'
+      ksu_name:
+        description: 'KernelSU Variant Name'
+        required: false
+        type: choice
+        options:
+          - none
+          - Ksunext
+          - ReSukiSU
+          - backslashxx
+        default: none 
       jobs:
         description: 'Parallel jobs'
         required: false
@@ -38,7 +48,7 @@ on:
 
 jobs:
   matrix-setup:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     outputs:
       variants: ${{ steps.set-matrix.outputs.variants }}
       ksu_check: ${{ steps.set-matrix.outputs.ksu_check }}
@@ -65,7 +75,7 @@ jobs:
 
   build:
     needs: matrix-setup
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 120
     strategy:
       matrix:
@@ -77,59 +87,58 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            git curl wget \
-            build-essential gcc make \
-            bc bison flex \
-            libssl-dev libelf-dev \
-            libncurses5-dev \
-            python3 \
-            zip unzip \
-            cpio \
-            ccache \
-            binutils-aarch64-linux-gnu \
-            binutils-arm-linux-gnueabihf \
-            lld \
-            rsync \
-            clang
-
-      - name: Checkout source
+          sudo apt-get update
+          sudo apt-get install -y build-essential bc curl git zip ftp gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libssl-dev lftp zstd wget libfl-dev python2 python3 libarchive-tools
+            
+      - name: Checkout kernel source (before KernelSU)
         uses: actions/checkout@v4
+        with:
+          ref: 58c0e7a618c8cc8220e32d23513201574e3324a5
+          fetch-depth: 1
+          path: kernel
 
-      - name: Patch kernel tanpa ubah source
+      - name: Restore Proton Clang cache
+        id: proton-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/toolchains/proton-clang
+          key: proton-clang-toolchain
+
+      - name: Download proton Clang
+        if: steps.proton-cache.outputs.cache-hit != 'true'
         run: |
-          echo "Patch Polly..."
-          grep -n "polly" Makefile
-          sed -i 's/-mllvm -polly-opt-fusion=max/-mllvm -polly-loopfusion-greedy -mllvm -polly-isl-arg=--no-schedule-serialize-sccs/' Makefile
-          grep -n "polly" Makefile
-
-          echo "Patch Cortex-A53 errata (SD845 pakai Kryo 385, bukan Cortex-A53)..."
-          grep -rn "mno-fix-cortex-a53-843419" arch/arm64/Makefile || true
-          sed -i 's/-mno-fix-cortex-a53-843419//' arch/arm64/Makefile
-          grep -rn "mno-fix-cortex-a53-843419" arch/arm64/Makefile || true
-
-      - name: Download Neutron Clang
-        run: |
-          mkdir -p "$HOME/toolchains/neutron-clang"
-          cd "$HOME/toolchains/neutron-clang"
-          curl -LO "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman"
-          chmod +x antman
-          ./antman -S
-
-      - name: Git Clone AnyKernel3 (fork sendiri, sudah dikonfigurasi untuk beryllium)
+          mkdir -p "$HOME/toolchains"
+          cd "$HOME/toolchains"
+          git clone --depth=1 https://github.com/kdrag0n/proton-clang.git proton-clang
+      - name: Git Clone AnyKernel3
         run: |
           git clone --depth=1 https://github.com/Shiki-ghub/AnyKernel3.git AnyKernel3
-
-      - name: Build kernel
+    
+      - name: Download build script
+        working-directory: kernel
         run: |
-          chmod +x ./compile-beryllium.sh
-          bash ./compile-beryllium.sh \
+          curl -L https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/beryllium.sh \
+            -o beryllium1.sh
+          chmod +x beryllium1.sh
+
+          # Download file-file sudah di-patch dari repo kecil → overwrite
+          for file in fs/exec.c fs/open.c fs/read_write.c fs/stat.c kernel/reboot.c; do
+            filename=$(basename $file)
+            curl -fL \
+              https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/${filename} \
+              -o ${file}
+            echo "✓ Overwritten: ${file}"
+          done
+    
+      - name: Build kernel
+        working-directory: kernel
+        run: |
+          ./beryllium1.sh \
             --variant "${{ matrix.variant }}" \
             --ksu "${{ matrix.ksu }}" \
             --defconfig "${{ matrix.defconfig }}" \
             --jobs "${{ inputs.jobs }}" \
-            --clang-path "$HOME/toolchains/neutron-clang/bin"
+            --clang-path "$HOME/toolchains/proton-clang/bin"
 
       - name: Package into AnyKernel3 zip
         id: package
@@ -137,8 +146,9 @@ jobs:
           variant="${{ matrix.variant }}"
           ksu="${{ matrix.ksu }}"
           defconfig="${{ matrix.defconfig }}"
-
-          cp "release/beryllium/Image-${variant}.gz-dtb" "AnyKernel3/Image.gz-dtb"
+          ksu_name="${{ inputs.ksu_name }}"
+          
+          cp "kernel/release/beryllium/Image-${variant}.gz-dtb" "AnyKernel3/Image.gz-dtb"
 
           if [ "$ksu" = "Include" ]; then
             ksu_tag="KSU"
@@ -146,7 +156,7 @@ jobs:
             ksu_tag="NoKSU"
           fi
 
-          zipname="beryllium-${defconfig}-${variant}-${ksu_tag}-$(date +'%Y%m%d-%H%M').zip"
+          zipname="beryllium-${defconfig}-${variant}-${ksu_tag}-${ksu_name}-$(date +'%Y%m%d-%H%M').zip"
           (
             cd AnyKernel3 || exit 1
             zip -r9 "../${zipname}" . -x ".git/*" ".github/*" "README.md"
@@ -162,4 +172,18 @@ jobs:
           path: ${{ steps.package.outputs.zipname }}
           if-no-files-found: error
           retention-days: 30
-          
+
+      - name: Send build to Telegram
+        if: success()
+        run: |
+          ZIP="${{ steps.package.outputs.zipname }}"
+
+          curl -F document=@"$ZIP" \
+                       -F caption="✅ Kernel Build Success
+
+             Device: beryllium
+             Variant: ${{ matrix.variant }}
+             KSU Variant: ${{ inputs.ksu_name }}
+             KSU: ${{ matrix.ksu }}
+             Defconfig: ${{ matrix.defconfig }}" \
+             "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument?chat_id=${{ secrets.TELEGRAM_CHAT_ID }}"
