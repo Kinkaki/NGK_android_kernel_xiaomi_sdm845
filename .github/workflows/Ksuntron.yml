@@ -30,7 +30,7 @@ on:
       defconfig:
         description: 'Defconfig (pisahkan dengan koma untuk build lebih dari satu)'
         required: false
-        default: 'nogravity_defconfig'
+        default: 'nogravityksun_defconfig'
       ksu_name:
         description: 'KernelSU Variant Name'
         required: false
