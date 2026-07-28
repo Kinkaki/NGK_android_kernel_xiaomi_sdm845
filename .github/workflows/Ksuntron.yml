@@ -117,7 +117,7 @@ jobs:
       - name: Download build script
         working-directory: kernel
         run: |
-          curl -L https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/beryllium.sh \
+          curl -L https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/beryllium1.sh \
             -o beryllium1.sh
           chmod +x beryllium1.sh
 
