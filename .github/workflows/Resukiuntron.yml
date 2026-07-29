@@ -1,4 +1,4 @@
-name: Build Kernel (beryllium)
+name: Build resukiKernel (beryllium)
 run-name: ${{ inputs.input-run-name }}
 
 on:
@@ -122,7 +122,7 @@ jobs:
           chmod +x beryllium1.sh
 
           # Download file-file sudah di-patch dari repo kecil → overwrite
-          for file in fs/exec.c fs/open.c fs/read_write.c fs/stat.c kernel/reboot.c; do
+          for file in fs/exec.c fs/open.c fs/stat.c kernel/reboot.c; do
             filename=$(basename $file)
             curl -fL \
               https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/${filename} \
