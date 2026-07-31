@@ -1,0 +1,191 @@
+name: Build resukiKernel (beryllium)
+run-name: ${{ inputs.input-run-name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      input-run-name:
+        description: 'Run name (for internal use, optional)'
+        required: false
+        default: 'Manual Run'
+      variant:
+        description: 'Touch firmware / DTS variant'
+        required: true
+        type: choice
+        options:
+          - all
+          - 9.1.24-SE
+          - 9.1.24-NSE
+          - 10.3.7-SE
+          - 10.3.7-NSE
+      ksu:
+        description: 'KernelSU / ReSukiSU (manual hook, sudah di-patch di source)?'
+        required: false
+        type: choice
+        options:
+          - Include
+          - Exclude
+          - Both
+        default: Include
+      defconfig:
+        description: 'Defconfig (pisahkan dengan koma untuk build lebih dari satu)'
+        required: false
+        default: 'nogravityksun_defconfig'
+      ksu_name:
+        description: 'KernelSU Variant Name'
+        required: false
+        type: choice
+        options:
+          - none
+          - Ksunext
+          - ReSukiSU
+          - backslashxx
+        default: none 
+      jobs:
+        description: 'Parallel jobs'
+        required: false
+        default: '24'
+
+jobs:
+  matrix-setup:
+    runs-on: ubuntu-22.04
+    outputs:
+      variants: ${{ steps.set-matrix.outputs.variants }}
+      ksu_check: ${{ steps.set-matrix.outputs.ksu_check }}
+      defconfigs: ${{ steps.set-matrix.outputs.defconfigs }}
+    steps:
+      - name: Set matrix variables
+        id: set-matrix
+        run: |
+          if [ "${{ inputs.variant }}" = "all" ]; then
+            echo 'variants=["9.1.24-SE","9.1.24-NSE","10.3.7-SE","10.3.7-NSE"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'variants=["${{ inputs.variant }}"]' >> "$GITHUB_OUTPUT"
+          fi
+
+          if [ "${{ inputs.ksu }}" = "Both" ]; then
+            echo 'ksu_check=["Include","Exclude"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ksu_check=["${{ inputs.ksu }}"]' >> "$GITHUB_OUTPUT"
+          fi
+
+          # "nogravity_defconfig, other_defconfig" -> ["nogravity_defconfig","other_defconfig"]
+          defconfigs=$(echo "${{ inputs.defconfig }}" | jq -Rc 'split(",") | map(gsub("^\\s+|\\s+$";"")) | map(select(length > 0))')
+          echo "defconfigs=${defconfigs}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: matrix-setup
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    strategy:
+      matrix:
+        variant: ${{ fromJson(needs.matrix-setup.outputs.variants) }}
+        ksu: ${{ fromJson(needs.matrix-setup.outputs.ksu_check) }}
+        defconfig: ${{ fromJson(needs.matrix-setup.outputs.defconfigs) }}
+      fail-fast: false
+
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bc curl git zip ftp gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi libssl-dev lftp zstd wget libfl-dev python2 python3 libarchive-tools
+            
+      - name: Checkout kernel source (before KernelSU)
+        uses: actions/checkout@v4
+        with:
+          ref: 58c0e7a618c8cc8220e32d23513201574e3324a5
+          fetch-depth: 1
+          path: kernel
+
+      - name: Restore Proton Clang cache
+        id: proton-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/toolchains/proton-clang
+          key: proton-clang-toolchain
+
+      - name: Download proton Clang
+        if: steps.proton-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$HOME/toolchains"
+          cd "$HOME/toolchains"
+          git clone --depth=1 https://github.com/kdrag0n/proton-clang.git proton-clang
+      - name: Git Clone AnyKernel3
+        run: |
+          git clone --depth=1 https://github.com/Shiki-ghub/AnyKernel3.git AnyKernel3
+    
+      - name: Download build script
+        working-directory: kernel
+        run: |
+          curl -L https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/beryllium2.sh \
+            -o beryllium2.sh
+          chmod +x beryllium2.sh
+
+          # Download patch dari repo kecil → 
+          
+          curl -fL https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/scope_min_manual_hooks_v1.6.patch -o /tmp/hooks.patch
+
+          # Cek kompatibilitas dulu
+          patch -p1 --dry-run < /tmp/hooks.patch
+
+          # Kalau output-nya "succeeded", baru apply beneran
+          patch -p1 < /tmp/hooks.patch
+          rm /tmp/hooks.patch
+          
+      - name: Build kernel
+        working-directory: kernel
+        run: |
+          ./beryllium2.sh \
+            --variant "${{ matrix.variant }}" \
+            --ksu "${{ matrix.ksu }}" \
+            --defconfig "${{ matrix.defconfig }}" \
+            --jobs "${{ inputs.jobs }}" \
+            --clang-path "$HOME/toolchains/proton-clang/bin"
+
+      - name: Package into AnyKernel3 zip
+        id: package
+        run: |
+          variant="${{ matrix.variant }}"
+          ksu="${{ matrix.ksu }}"
+          defconfig="${{ matrix.defconfig }}"
+          ksu_name="${{ inputs.ksu_name }}"
+          
+          cp "kernel/release/beryllium/Image-${variant}.gz-dtb" "AnyKernel3/Image.gz-dtb"
+
+          if [ "$ksu" = "Include" ]; then
+            ksu_tag="KSU"
+          else
+            ksu_tag="NoKSU"
+          fi
+
+          zipname="beryllium-${defconfig}-${variant}-${ksu_tag}-${ksu_name}-$(date +'%Y%m%d-%H%M').zip"
+          (
+            cd AnyKernel3 || exit 1
+            zip -r9 "../${zipname}" . -x ".git/*" ".github/*" "README.md"
+          )
+          rm -f "AnyKernel3/Image.gz-dtb"
+
+          echo "zipname=${zipname}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.zipname }}
+          path: ${{ steps.package.outputs.zipname }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Send build to Telegram
+        if: success()
+        run: |
+          ZIP="${{ steps.package.outputs.zipname }}"
+
+          curl -F document=@"$ZIP" \
+                       -F caption="✅ Kernel Build Success
+
+             Device: beryllium
+             Variant: ${{ matrix.variant }}
+             KSU Variant: ${{ inputs.ksu_name }}
+             KSU: ${{ matrix.ksu }}
+             Defconfig: ${{ matrix.defconfig }}" \
+             "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument?chat_id=${{ secrets.TELEGRAM_CHAT_ID }}"
