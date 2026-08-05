@@ -117,15 +117,15 @@ jobs:
       - name: Download build script
         working-directory: kernel
         run: |
-          curl -L https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/beryllium1.sh \
-            -o beryllium1.sh
-          chmod +x beryllium1.sh
+          curl -L https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/resukisu_droidspaces/beryllium1droid.sh \
+            -o beryllium1droid.sh
+          chmod +x beryllium1droid.sh
 
           # Download file-file sudah di-patch dari repo kecil → overwrite
-          for file in fs/exec.c fs/open.c fs/stat.c kernel/reboot.c; do
+          for file in kernel/cgroup/cgroup.c net/netfilter/xt_qtaguid.c fs/exec.c fs/open.c fs/stat.c kernel/reboot.c; do
             filename=$(basename $file)
             curl -fL \
-              https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/${filename} \
+              https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/resukisu_droidspaces/${filename} \
               -o ${file}
             echo "✓ Overwritten: ${file}"
           done
