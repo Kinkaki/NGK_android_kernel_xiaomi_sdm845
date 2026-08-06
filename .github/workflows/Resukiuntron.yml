@@ -99,7 +99,7 @@ jobs:
 
       - name: Restore Proton Clang cache
         id: proton-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/toolchains/proton-clang
           key: proton-clang-toolchain
