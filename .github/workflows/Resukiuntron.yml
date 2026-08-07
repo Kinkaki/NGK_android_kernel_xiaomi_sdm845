@@ -122,7 +122,7 @@ jobs:
           chmod +x beryllium1droid.sh
 
           # Download file-file sudah di-patch dari repo kecil → overwrite
-          for file in security/selinux/hooks.c kernel/cgroup/cgroup.c net/netfilter/xt_qtaguid.c fs/exec.c fs/open.c fs/stat.c kernel/reboot.c fs/namespace.c fs/internal.h; do
+          for file in security/selinux/hooks.c kernel/cgroup/cgroup.c fs/exec.c fs/open.c fs/stat.c kernel/reboot.c fs/namespace.c fs/internal.h; do
             filename=$(basename $file)
             curl -fL \
               https://raw.githubusercontent.com/Shiki-ghub/Ajs/main/resukisu_droidspaces/${filename} \
